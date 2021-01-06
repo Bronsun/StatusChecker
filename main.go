@@ -1,5 +1,11 @@
 package main
 
+import (
+	"github.com/Bronsun/StatusChecker/migrations"
+	"github.com/Bronsun/StatusChecker/server"
+)
+
 func main() {
-	println("Hello")
+	migrations.Migrate()
+	server.Start()
 }
