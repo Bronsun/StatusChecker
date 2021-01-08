@@ -44,6 +44,7 @@ func prepareResponse(user *interfaces.User, userLinks []interfaces.ResponseLink,
 	return response
 }
 
+//// Get Status of the website ////
 func getStatus(link string) string {
 	resp, err := http.Get(link)
 
@@ -124,6 +125,7 @@ func Register(login string, email string, pass string) map[string]interface{} {
 	}
 }
 
+/// Get User data ////
 func GetUser(id string, jwt string) map[string]interface{} {
 	isValid := helpers.ValidateToken(id, jwt)
 
@@ -148,6 +150,7 @@ func GetUser(id string, jwt string) map[string]interface{} {
 
 }
 
+//// Add link to database //// - it will be change to get JWT token
 func AddLink(login string, pass string, link string) map[string]interface{} {
 	valid := helpers.Validation(
 		[]interfaces.Validation{
@@ -166,23 +169,38 @@ func AddLink(login string, pass string, link string) map[string]interface{} {
 		if passErr == bcrypt.ErrMismatchedHashAndPassword && passErr != nil {
 			return map[string]interface{}{"message": "Wrong password"}
 		}
+		userLinks := &interfaces.UserLink{}
+		if db.Where("link = ?", link).First(&userLinks).RecordNotFound() {
+			now := time.Now()
+			status := getStatus(link)
+			userlink := &interfaces.UserLink{Link: link, Status: status, Time: now, UserId: user.ID}
+			db.Create(&userlink)
 
-		now := time.Now()
-		status := getStatus(link)
-		userlink := &interfaces.UserLink{Link: link, Status: status, Time: now, UserId: user.ID}
-		db.Create(&userlink)
+			defer db.Close()
 
-		defer db.Close()
+			userlinks := []interfaces.ResponseLink{}
+			respLink := interfaces.ResponseLink{ID: userlink.ID, Link: userlink.Link, Status: userlink.Status, Time: userlink.Time}
+			userlinks = append(userlinks, respLink)
+			var response = prepareResponse(user, userlinks, true)
 
-		userlinks := []interfaces.ResponseLink{}
-		respLink := interfaces.ResponseLink{ID: userlink.ID, Link: userlink.Link, Status: userlink.Status, Time: userlink.Time}
-		userlinks = append(userlinks, respLink)
-		var response = prepareResponse(user, userlinks, true)
+			return response
 
-		return response
+		} else {
+			return map[string]interface{}{"message": "URL exists - check your status using /checkStatus"}
+		}
 
 	} else {
 		return map[string]interface{}{"message": "not valid values"}
 	}
 
 }
+
+/*
+func CheckStatus() {
+	db := helpers.ConnectDB()
+	userlink := &interfaces.UserLink{}
+
+	links := db.Select("link").Find(&userlink)
+
+}
+*/
